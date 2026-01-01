@@ -5,7 +5,7 @@ function signToken(user) {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('Missing JWT_SECRET');
 
-  const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
+  const expiresIn = process.env.JWT_EXPIRES_IN || '2d';
 
   return jwt.sign(
     {
@@ -15,7 +15,7 @@ function signToken(user) {
       lastName: user.lastName,
       email: user.email,
       schoolGroupId: user.schoolGroupId,
-      appId: user.appId // Including appId in token
+      applicationID: user.appId // Including appId in token
     },
     secret,
     {
