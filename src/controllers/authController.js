@@ -13,6 +13,8 @@ function signToken(user) {
       userId: user.userId,
       firstName: user.firstName,
       lastName: user.lastName,
+      email: user.email,
+      schoolGroupId: user.schoolGroupId,
       appId: user.appId // Including appId in token
     },
     secret,
@@ -24,19 +26,20 @@ function signToken(user) {
 }
 
 export async function loginWithCredential(req, res) {
-  const { employeeID, parentID, childID, password, applicationID } = req.body;
+  const { employeeID, parentID, childID, email, password, applicationID } = req.body;
 
   const userId = employeeID || parentID || childID;
 
-  if (!password || !userId) {
-    return res.status(400).json({ error: 'userId and password are required' });
+  if (!password || (!userId && !email)) {
+    return res.status(400).json({ error: 'Identification (email or ID) and password are required' });
   }
 
   if (!applicationID) {
     return res.status(400).json({ error: 'applicationID is required' });
   }
 
-  const user = await Credential.findOne({ userId });
+  const query = email ? { email: email.toLowerCase().trim() } : { userId };
+  const user = await Credential.findOne(query);
 
   if (!user) {
     return res.status(401).json({ error: 'Invalid credentials' });
@@ -53,8 +56,21 @@ export async function loginWithCredential(req, res) {
 
   const token = signToken({ ...user.toObject(), appId: applicationID });
 
+  let backendUrl = user.url;
+  try {
+    const parsedUrls = JSON.parse(user.url);
+    if (Array.isArray(parsedUrls)) {
+      const matchedUrl = parsedUrls.find(u => u.name === applicationID);
+      if (matchedUrl && matchedUrl.value) {
+        backendUrl = matchedUrl.value;
+      }
+    }
+  } catch (error) {
+    // If parsing fails, user.url is likely a simple string, so we use it as is
+  }
+
   return res.json({
     token,
-    url: user.url,
+    url: backendUrl,
   });
 }

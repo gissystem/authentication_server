@@ -36,6 +36,15 @@ const credentialSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    schoolGroupId: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

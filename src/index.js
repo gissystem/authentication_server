@@ -17,7 +17,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/auth/webhook', webhookRoutes);
 app.use('/auth', authRoutes);
-
+app.use('/', (req, res) => res.json({ ok: true }));
 const port = Number(process.env.PORT || 3000);
 
 await connectDB(process.env.MONGODB_URI);

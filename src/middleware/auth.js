@@ -1,6 +1,6 @@
 export function extractCredentialsFromBody() {
   return function extractCredentialsMiddleware(req, res, next) {
-    const { userId, password, url, firstName, fname, lastName, title } = req.body || {};
+    const { userId, password, url, firstName, fname, lastName, title, email, schoolGroupId } = req.body || {};
 
     if (!userId || typeof userId !== 'string' || !userId.trim()) {
       return res.status(400).json({ error: 'userId is required' });
@@ -21,6 +21,8 @@ export function extractCredentialsFromBody() {
       firstName: (firstName || fname || '').trim(),
       lastName: (lastName || '').trim(),
       title: (title || '').trim(),
+      email: (email || '').trim(),
+      schoolGroupId: (schoolGroupId || '').trim(),
     };
 
     return next();
