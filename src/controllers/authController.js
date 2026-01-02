@@ -15,7 +15,8 @@ function signToken(user) {
       lastName: user.lastName,
       email: user.email,
       schoolGroupId: user.schoolGroupId,
-      applicationID: user.appId // Including appId in token
+      applicationID: user.appId, // Including appId in token
+      schoolId: user.schoolId
     },
     secret,
     {

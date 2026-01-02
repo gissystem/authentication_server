@@ -1,9 +1,9 @@
 import { MongoClient } from 'mongodb';
 // Database configuration
-const SOURCE_DB_URI = 'mongodb://owner:owner123@unsere-kinder-shard-00-00.vwlkg.mongodb.net:27017,unsere-kinder-shard-00-01.vwlkg.mongodb.net:27017,unsere-kinder-shard-00-02.vwlkg.mongodb.net:27017/unsere_kinder_pesh_town?authSource=admin&replicaSet=atlas-3kuwud-shard-0&w=majority&readPreference=primary&retryWrites=true&ssl=true'; // Replace with your source DB URI
-const TARGET_DB_URI = 'mongodb://localhost:27017/middleware'; // Replace with your target DB URI
+const SOURCE_DB_URI = 'mongodb://owner:owner123@unsere-kinder-shard-00-00.vwlkg.mongodb.net:27017,unsere-kinder-shard-00-01.vwlkg.mongodb.net:27017,unsere-kinder-shard-00-02.vwlkg.mongodb.net:27017/unsere_kinder_pesh_town?authSource=admin&replicaSet=atlas-3kuwud-shard-0&w=majority&readPreference=primary&retryWrites=true&ssl=true';
+const TARGET_DB_URI = 'mongodb://techsupport:dn9KPoFgAKstDqFn@ac-syf6yqg-shard-00-00.lhmgwpm.mongodb.net:27017,ac-syf6yqg-shard-00-01.lhmgwpm.mongodb.net:27017,ac-syf6yqg-shard-00-02.lhmgwpm.mongodb.net:27017/authentication?replicaSet=atlas-2ic0nq-shard-0&ssl=true&authSource=admin'; // Replace with your target DB URI
 const SOURCE_DB_NAME = 'unsere_kinder_pesh_town'; // Replace with your source database name
-const TARGET_DB_NAME = 'middleware'; // Replace with your target database name
+const TARGET_DB_NAME = 'authentication'; // Replace with your target database name
 const SOURCE_COLLECTION = 'employee_models';
 const TARGET_COLLECTION = 'credentials';
 
@@ -38,6 +38,8 @@ function mapDocument(sourceDoc) {
   mappedDoc.userId = sourceDoc.employeeID ?? null;
   mappedDoc.deviceId = ' ';
   mappedDoc.appId = ['MENTOR_APP', 'InstituteApp'];
+  mappedDoc.url = 'https://unsere-kinder-pesh-town.herokuapp.com';
+  mappedDoc.schoolId = 'unsere_kinder';
   
   return mappedDoc;
 }
@@ -67,7 +69,7 @@ async function migrateData() {
     const targetCollection = targetDb.collection(TARGET_COLLECTION);
     
     // Get total count of documents
-    const totalDocs = await sourceCollection.countDocuments();
+    const totalDocs = await sourceCollection.countDocuments({ title: { $ne: 'Left' } });
     console.log(`Found ${totalDocs} documents in source collection`);
     
     if (totalDocs === 0) {
@@ -77,7 +79,7 @@ async function migrateData() {
     
     // Fetch all documents from source
     console.log('Fetching documents from source...');
-    const sourceDocs = await sourceCollection.find({}).toArray();
+    const sourceDocs = await sourceCollection.find({ title: { $ne: 'Left' } }).toArray();
     
     // Map documents
     console.log('Mapping documents...');

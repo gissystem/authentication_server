@@ -7,6 +7,10 @@ const credentialSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    schoolId: {
+      type: String,
+      required: true,
+    },
     password: {
       type: String,
       required: true,

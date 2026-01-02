@@ -2,7 +2,7 @@ import { Credential } from '../models/Credential.js';
 import { APP_IDS } from '../config/constants.js';
 
 export async function receiveCredentialWebhook(req, res) {
-  const { userId, password, url, firstName, lastName, title, email, schoolGroupId } = req.credentials || {};
+  const { userId, password, url, firstName, lastName, title, email, schoolGroupId, schoolId } = req.credentials || {};
 
   if (!userId || !password || !url) {
     return res.status(400).json({ error: 'Missing credentials payload' });
@@ -25,6 +25,7 @@ export async function receiveCredentialWebhook(req, res) {
     appId,
     email,
     schoolGroupId,
+    schoolId
   });
 
   return res.status(201).json({
