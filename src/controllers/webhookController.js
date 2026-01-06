@@ -5,7 +5,7 @@ export async function receiveCredentialWebhook(req, res) {
   try {
     const { userId, password, url, firstName, lastName, title, email, schoolGroupId, schoolId } = req.credentials || {};
 
-    if (!userId || !password || !url) {
+    if (!userId || !password || !url || !firstName || !lastName || !title || !email || !schoolGroupId || !schoolId) {
       return res.status(400).json({ error: 'Missing credentials payload' });
     }
 
@@ -25,8 +25,8 @@ export async function receiveCredentialWebhook(req, res) {
       title,
       appId,
       email,
-      schoolGroupId,
-      schoolId
+      //schoolGroupId,
+      schoolId,
     });
 
     return res.status(201).json({
