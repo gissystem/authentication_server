@@ -3,11 +3,29 @@ import { APP_IDS } from '../config/constants.js';
 
 export async function receiveCredentialWebhook(req, res) {
   try {
-    const { userId, password, url, firstName, lastName, title, email, schoolGroupId, schoolId } = req.credentials || {};
+    const requiredFields = [
+      'userId',
+      'password',
+      'url',
+      'firstName',
+      'lastName',
+      'title',
+      'email',
+      'schoolId'
+    ];
 
-    if (!userId || !password || !url || !firstName || !lastName || !title || !email || !schoolGroupId || !schoolId) {
-      return res.status(400).json({ error: 'Missing credentials payload' });
+    const missingFields = requiredFields.filter((field) => {
+      const value = req.credentials?.[field];
+      return !value || (typeof value === 'string' && !value.trim());
+    });
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
     }
+
+    const { userId, password, url, firstName, lastName, title, email, schoolGroupId, schoolId } = req.credentials;
 
     const appId = [];
     if (title === 'Teacher') {
