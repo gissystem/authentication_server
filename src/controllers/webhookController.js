@@ -28,10 +28,11 @@ export async function receiveCredentialWebhook(req, res) {
     const { userId, password, url, firstName, lastName, title, email, schoolGroupId, schoolId } = req.credentials;
 
     const appId = [];
-    if (title === 'Teacher') {
-      appId.push(APP_IDS.InstituteApp, APP_IDS.MentorApp);
-    } else if (title === 'Parent') {
+
+    if (title === 'Parent') {
       appId.push(APP_IDS.ScholarApp);
+    } else {
+      appId.push(APP_IDS.InstituteApp, APP_IDS.MentorApp);
     }
 
     const doc = await Credential.create({
