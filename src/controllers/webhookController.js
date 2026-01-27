@@ -35,18 +35,20 @@ export async function receiveCredentialWebhook(req, res) {
       appId.push(APP_IDS.InstituteApp, APP_IDS.MentorApp);
     }
 
-    const doc = await Credential.create({
-      userId,
-      url,
-      password,
-      firstName,
-      lastName,
-      title,
-      appId,
-      email,
-      //schoolGroupId,
-      schoolId,
-    });
+    const doc = await Credential.findOneAndUpdate(
+      { userId },
+      {
+        url,
+        password,
+        firstName,
+        lastName,
+        title,
+        appId,
+        email,
+        schoolId,
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
 
     return res.status(201).json({
       ok: true,
