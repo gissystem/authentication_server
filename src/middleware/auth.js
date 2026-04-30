@@ -1,6 +1,6 @@
 export function extractCredentialsFromBody() {
   return function extractCredentialsMiddleware(req, res, next) {
-    const { userId, password, url, firstName, fname, lastName, title, email, schoolGroupId, schoolId } = req.body || {};
+    const { userId, password, url, firstName, fname, lastName, title, email, schoolGroupId, schoolId, editMode } = req.body || {};
 
 
     if (!userId) {
@@ -25,6 +25,7 @@ export function extractCredentialsFromBody() {
       email: (email || '').trim(),
       schoolGroupId: (schoolGroupId || '').trim(),
       schoolId: (schoolId || '').trim(),
+      editMode: editMode === true || editMode === 'true',
     };
 
     return next();
