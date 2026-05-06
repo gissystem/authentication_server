@@ -37,7 +37,11 @@ export async function receiveCredentialWebhook(req, res) {
 
     const existing = await Credential.findOne({ userId }).lean();
 
-    if (existing && !editMode) {
+    const isSameParentSchoolContext = title === 'Parent'
+      && existing?.schoolId === schoolId
+      && existing?.schoolGroupId === schoolGroupId;
+
+    if (existing && !editMode && !isSameParentSchoolContext) {
       return res.status(409).json({
         ok: false,
         error: 'USER_ALREADY_EXISTS',
