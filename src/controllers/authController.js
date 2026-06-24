@@ -14,9 +14,8 @@ function signToken(user) {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      schoolGroupId: user.schoolGroupId,
-      applicationID: user.appId, // Including appId in token
-      schoolId: user.schoolId
+      applicationID: user.appId,
+      schoolBranchId: user.schoolBranchId
     },
     secret,
     {
@@ -27,6 +26,7 @@ function signToken(user) {
 }
 
 export async function loginWithCredential(req, res) {
+  console.log(req.body);
   const { employeeID, parentID, childID, email, password, applicationID } = req.body;
 
   const userId = employeeID || parentID || childID;

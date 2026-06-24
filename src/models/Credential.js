@@ -7,10 +7,6 @@ const credentialSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    schoolId: {
-      type: String,
-      required: true,
-    },
     password: {
       type: String,
       required: true,
@@ -45,9 +41,9 @@ const credentialSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    schoolGroupId: {
-      type: String,
-      trim: true,
+    schoolBranchId: {
+      type: [String],
+      default: [],
     },
   },
   { timestamps: true }

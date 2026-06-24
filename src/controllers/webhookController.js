@@ -2,6 +2,7 @@ import { Credential } from '../models/Credential.js';
 import { APP_IDS } from '../config/constants.js';
 
 export async function receiveCredentialWebhook(req, res) {
+  console.log(req.body.schoolBranchId);
   try {
     const requiredFields = [
       'userId',
@@ -11,7 +12,7 @@ export async function receiveCredentialWebhook(req, res) {
       'lastName',
       'title',
       'email',
-      'schoolId'
+      'schoolBranchId'
     ];
 
     const missingFields = requiredFields.filter((field) => {
@@ -25,7 +26,7 @@ export async function receiveCredentialWebhook(req, res) {
       });
     }
 
-    const { userId, password, url, firstName, lastName, title, email, schoolGroupId, schoolId, editMode } = req.credentials;
+    const { userId, password, url, firstName, lastName, title, email, schoolBranchId, editMode } = req.credentials;
 
     const appId = [];
 
@@ -38,8 +39,7 @@ export async function receiveCredentialWebhook(req, res) {
     const existing = await Credential.findOne({ userId }).lean();
 
     const isSameParentSchoolContext = title === 'Parent'
-      && existing?.schoolId === schoolId
-      && existing?.schoolGroupId === schoolGroupId;
+      && JSON.stringify(existing?.schoolBranchId) === JSON.stringify(schoolBranchId);
 
     if (existing && !editMode && !isSameParentSchoolContext) {
       return res.status(409).json({
@@ -48,12 +48,12 @@ export async function receiveCredentialWebhook(req, res) {
         message: 'User already exists',
         conflict: {
           userId: existing.userId,
-          existingSchoolId: existing.schoolId,
+          existingSchoolBranchId: existing.schoolBranchId,
         },
       });
     }
 
-    const fields = { url, password, firstName, lastName, title, appId, email, schoolId, schoolGroupId };
+    const fields = { url, password, firstName, lastName, title, appId, email, schoolBranchId };
 
     if (existing) {
       const doc = await Credential.findOneAndUpdate(
@@ -89,7 +89,7 @@ function serializeCredential(doc) {
     title: doc.title,
     appId: doc.appId,
     email: doc.email,
-    schoolGroupId: doc.schoolGroupId,
+    schoolBranchId: doc.schoolBranchId,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };

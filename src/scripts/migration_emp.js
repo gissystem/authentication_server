@@ -38,7 +38,7 @@ function mapDocument(sourceDoc) {
   mappedDoc.deviceId = ' ';
   mappedDoc.appId = ['MENTOR_APP', 'InstituteApp'];
   mappedDoc.url = 'https://unsere-kinder-pesh-town.herokuapp.com';
-  mappedDoc.schoolId = 'unsere_kinder';
+  mappedDoc.schoolBranchId = ['unsere_kinder'];
   
   return mappedDoc;
 }

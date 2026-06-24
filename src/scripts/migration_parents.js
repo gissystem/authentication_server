@@ -39,7 +39,7 @@ function mapDocument(sourceDoc) {
   mappedDoc.appId = ['ParentApp'];
   mappedDoc.title = 'Parent';
   mappedDoc.url = 'https://unsere-kinder-pesh-town.herokuapp.com';
-  mappedDoc.schoolId = 'unsere_kinder';
+  mappedDoc.schoolBranchId = ['unsere_kinder'];
   
   return mappedDoc;
 }
@@ -107,7 +107,7 @@ async function migrateData() {
             title: doc.title,
             deviceId: doc.deviceId,
             url: doc.url,
-            schoolId: doc.schoolId,
+            schoolBranchId: doc.schoolBranchId,
             updatedAt: new Date()
           },
           $addToSet: {
