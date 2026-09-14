@@ -1,8 +1,28 @@
 import { Credential } from '../models/Credential.js';
 import { APP_IDS } from '../config/constants.js';
 
+function normalizeSchoolBranchIds(rawSchoolBranchId) {
+  const branchIds = Array.isArray(rawSchoolBranchId)
+    ? rawSchoolBranchId
+    : rawSchoolBranchId != null
+      ? [rawSchoolBranchId]
+      : [];
+  return branchIds
+    .map((id) => (id != null ? String(id).trim() : ''))
+    .filter(Boolean)
+    .sort();
+}
+
+function getParentScopeKey(userId, schoolBranchId) {
+  return `${String(userId).trim()}||${(schoolBranchId || []).sort().join('|')}`;
+}
+
+function areBranchesAllowed(incomingSchoolBranchIds, existingSchoolBranchIds) {
+  const existingSet = new Set(normalizeSchoolBranchIds(existingSchoolBranchIds));
+  return incomingSchoolBranchIds.every((branchId) => existingSet.has(branchId));
+}
+
 export async function receiveCredentialWebhook(req, res) {
-  console.log(req.body.schoolBranchId);
   try {
     const requiredFields = [
       'userId',
@@ -12,7 +32,6 @@ export async function receiveCredentialWebhook(req, res) {
       'lastName',
       'title',
       'email',
-      'schoolBranchId'
     ];
 
     const missingFields = requiredFields.filter((field) => {
@@ -26,7 +45,26 @@ export async function receiveCredentialWebhook(req, res) {
       });
     }
 
-    const { userId, password, url, firstName, lastName, title, email, schoolBranchId, editMode } = req.credentials;
+    const {
+      userId,
+      password,
+      url,
+      firstName,
+      lastName,
+      title,
+      email,
+      schoolBranchId,
+      editMode,
+    } = req.credentials;
+    const normalizedSchoolBranchId = normalizeSchoolBranchIds(schoolBranchId);
+    if (title === 'Parent' && normalizedSchoolBranchId.length === 0) {
+      missingFields.push('schoolBranchId');
+    }
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
 
     const appId = [];
 
@@ -37,23 +75,58 @@ export async function receiveCredentialWebhook(req, res) {
     }
 
     const existing = await Credential.findOne({ userId }).lean();
+    const isParent = title === 'Parent';
+    const isParentSchoolContextMatch =
+      isParent &&
+      existing &&
+      existing.title === 'Parent' &&
+      areBranchesAllowed(normalizedSchoolBranchId, existing?.schoolBranchId || []);
 
-    const isSameParentSchoolContext = title === 'Parent'
-      && JSON.stringify(existing?.schoolBranchId) === JSON.stringify(schoolBranchId);
+    if (isParent && existing && !isParentSchoolContextMatch) {
+      const existingSchoolBranchId = normalizeSchoolBranchIds(existing?.schoolBranchId);
+      console.warn('Auth webhook parent school branch conflict', {
+        userId,
+        incomingSchoolBranchId: normalizedSchoolBranchId,
+        existingSchoolBranchId,
+      });
 
-    if (existing && !editMode && !isSameParentSchoolContext) {
+      return res.status(409).json({
+        ok: false,
+        error: 'USER_ALREADY_EXISTS',
+        message: 'User already exists in a different school context',
+        conflict: {
+          userId,
+          existingSchoolBranchId,
+          incomingSchoolBranchId: normalizedSchoolBranchId,
+        },
+      });
+    }
+
+    if (existing && !editMode && !isParentSchoolContextMatch) {
       return res.status(409).json({
         ok: false,
         error: 'USER_ALREADY_EXISTS',
         message: 'User already exists',
         conflict: {
           userId: existing.userId,
-          existingSchoolBranchId: existing.schoolBranchId,
+          existingSchoolBranchId: isParent
+            ? normalizeSchoolBranchIds(existing?.schoolBranchId)
+            : existing?.schoolBranchId,
+          incomingSchoolBranchId: isParent ? normalizedSchoolBranchId : undefined,
         },
       });
     }
 
-    const fields = { url, password, firstName, lastName, title, appId, email, schoolBranchId };
+    const fields = {
+      url,
+      password,
+      firstName,
+      lastName,
+      title,
+      appId,
+      email,
+      schoolBranchId: normalizedSchoolBranchId,
+    };
 
     if (existing) {
       const doc = await Credential.findOneAndUpdate(
@@ -112,13 +185,14 @@ export async function receiveCredentialBulkWebhook(req, res) {
       'lastName',
       'title',
       'email',
-      'schoolBranchId',
     ];
 
     const skipped = [];
-    // Dedupe by userId (last wins) so multiple children sharing one parent
-    // collapse into a single parent credential.
-    const validByUserId = new Map();
+    const conflicts = [];
+    // Dedupe by userId for non-parents and by (userId + schoolBranchId) for parents
+    // so multiple children sharing one parent in one school collapse into a single
+    // parent credential, while different school branches stay separate.
+    const validByUserOrScope = new Map();
 
     items.forEach((raw, index) => {
       const item = raw || {};
@@ -130,14 +204,11 @@ export async function receiveCredentialBulkWebhook(req, res) {
         lastName: (item.lastName || '').toString().trim(),
         title: (item.title || '').toString().trim(),
         email: (item.email || '').toString().trim().toLowerCase(),
-        schoolBranchId: Array.isArray(item.schoolBranchId)
-          ? item.schoolBranchId.map(String)
-          : (item.schoolBranchId ? [String(item.schoolBranchId)] : []),
+        schoolBranchId: normalizeSchoolBranchIds(item.schoolBranchId),
       };
-
+      const isParent = normalized.title === 'Parent';
       const missing = requiredFields.filter((field) => {
         const value = normalized[field];
-        if (field === 'schoolBranchId') return !Array.isArray(value) || value.length === 0;
         return !value || (typeof value === 'string' && !value.trim());
       });
 
@@ -149,22 +220,112 @@ export async function receiveCredentialBulkWebhook(req, res) {
         });
         return;
       }
+      if (isParent && normalized.schoolBranchId.length === 0) {
+        skipped.push({
+          index,
+          userId: normalized.userId || null,
+          reason: `Missing required fields: schoolBranchId`,
+        });
+        return;
+      }
 
       const appId = normalized.title === 'Parent'
         ? [APP_IDS.ScholarApp]
         : [APP_IDS.InstituteApp, APP_IDS.MentorApp];
+      const scopeKey = isParent
+        ? getParentScopeKey(normalized.userId, normalized.schoolBranchId)
+        : normalized.userId;
+      normalized._scopeKey = scopeKey;
 
-      validByUserId.set(normalized.userId, { ...normalized, appId });
+      validByUserOrScope.set(scopeKey, { ...normalized, appId });
     });
 
-    const credentials = Array.from(validByUserId.values());
+    const dedupedCredentials = Array.from(validByUserOrScope.values());
+    const credentialsByUser = new Map();
+    const parentCredentials = [];
+    dedupedCredentials.forEach((credential) => {
+      if (credential.title !== 'Parent') return;
+      const current = credentialsByUser.get(credential.userId) || [];
+      current.push(credential);
+      credentialsByUser.set(credential.userId, current);
+      parentCredentials.push(credential);
+    });
+
+    const conflictScopeKeys = new Set();
+
+    // Same parent user appearing for more than one branch in one bulk payload is
+    // ambiguous and must fail explicitly to prevent silent cross-branch writes.
+    for (const [userId, byUser] of credentialsByUser.entries()) {
+      const scopeKeys = new Set(byUser.map((item) => item._scopeKey));
+      if (scopeKeys.size > 1) {
+        const incomingBranches = byUser.map((item) => item.schoolBranchId);
+        console.warn('Auth bulk webhook parent ambiguity across branches in payload', {
+          userId,
+          schoolBranches: incomingBranches,
+        });
+        byUser.forEach((item) => {
+          conflictScopeKeys.add(item._scopeKey);
+          conflicts.push({
+            index: null,
+            userId,
+            reason: 'Duplicate parent user across different school branches in one bulk payload',
+            incomingSchoolBranchId: item.schoolBranchId,
+          });
+        });
+      }
+    }
+
+    const existingParentEntries = parentCredentials.length > 0
+      ? await Credential.find({
+          title: 'Parent',
+          userId: { $in: [...new Set(parentCredentials.map((item) => item.userId))] },
+        }).lean()
+      : [];
+    const existingParentMap = new Map();
+    existingParentEntries.forEach((entry) => {
+      const branches = normalizeSchoolBranchIds(entry.schoolBranchId);
+      const existingSet = existingParentMap.get(entry.userId) || new Set();
+      branches.forEach((branchId) => existingSet.add(branchId));
+      existingParentMap.set(entry.userId, existingSet);
+    });
+
+    parentCredentials.forEach((credential) => {
+      if (conflictScopeKeys.has(credential._scopeKey)) {
+        return;
+      }
+
+      const existingSet = existingParentMap.get(credential.userId);
+      if (!existingSet) return;
+
+      if (!areBranchesAllowed(credential.schoolBranchId, [...existingSet])) {
+        console.warn('Auth bulk webhook parent school branch conflict', {
+          userId: credential.userId,
+          incomingSchoolBranchId: credential.schoolBranchId,
+          existingSchoolBranchId: [...existingSet],
+        });
+        conflictScopeKeys.add(credential._scopeKey);
+        conflicts.push({
+          index: null,
+          userId: credential.userId,
+          reason:
+            'Parent credential exists in a different school context',
+          incomingSchoolBranchId: credential.schoolBranchId,
+          existingSchoolBranchId: [...existingSet],
+        });
+      }
+    });
+
+    const credentials = dedupedCredentials.filter(
+      (credential) => !conflictScopeKeys.has(credential._scopeKey)
+    );
 
     const result = {
       ok: true,
       dryRun: !!dryRun,
       total: items.length,
       valid: credentials.length,
-      duplicatesCollapsed: items.length - skipped.length - credentials.length,
+      duplicatesCollapsed: items.length - skipped.length - dedupedCredentials.length,
+      conflicts,
       upserted: 0,
       modified: 0,
       matched: 0,
