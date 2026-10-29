@@ -45,6 +45,12 @@ const credentialSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Set only on credentials created by a bulk import, so a failed import can
+    // be rolled back by deleting exactly the rows it inserted.
+    importBatchId: {
+      type: String,
+      index: true,
+    },
   },
   { timestamps: true }
 );

@@ -1,3 +1,15 @@
+// When WEBHOOK_SECRET is configured, callers must send it in the
+// x-webhook-secret header. Left open when unset so existing deployments keep working.
+export function requireWebhookSecret() {
+  return function requireWebhookSecretMiddleware(req, res, next) {
+    const secret = process.env.WEBHOOK_SECRET;
+    if (secret && req.headers['x-webhook-secret'] !== secret) {
+      return res.status(401).json({ error: 'Invalid webhook secret' });
+    }
+    return next();
+  };
+}
+
 export function extractCredentialsFromBody() {
   return function extractCredentialsMiddleware(req, res, next) {
     const { userId, password, url, firstName, fname, lastName, title, email, schoolBranchId, editMode } = req.body || {};
