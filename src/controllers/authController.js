@@ -39,8 +39,15 @@ export async function loginWithCredential(req, res) {
     return res.status(400).json({ error: 'applicationID is required' });
   }
 
-  const query = email ? { email: email.toLowerCase().trim() } : { userId };
-  const user = await Credential.findOne(query);
+  let user;
+  if (email) {
+    user = await Credential.findOne({ email: email.toLowerCase().trim() });
+  } else {
+    // Query the driver directly so the schema's `trim` setter on userId is NOT
+    // applied to the filter: the ID must match exactly as typed (no trimming).
+    const raw = await Credential.collection.findOne({ userId: String(userId) });
+    user = raw ? Credential.hydrate(raw) : null;
+  }
 
   if (!user) {
     return res.status(401).json({ error: 'Invalid credentials' });
